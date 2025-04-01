@@ -1,12 +1,12 @@
-from ebay import get_ebay_results
-from github import get_status_updates
+from modules.ebay import get_ebay_results
+from modules.github import get_status_updates
 import toml
 from datetime import datetime
-from send_email import send_email_with_attachment
-from steam_wishlist import get_tracked_games_html
-from tcbscans import get_newest_chapter_info
-from fuelwatch import generate_fuel_content
-from huggingface import scrape_huggingface_models
+from send_email import send_email_with_attachment, check_email_read_status
+from modules.steam_wishlist import get_tracked_games_html
+from modules.tcbscans import get_newest_chapter_info
+from modules.fuelwatch import generate_fuel_content
+from modules.huggingface import scrape_huggingface_models
 
 # Load settings from the TOML file
 config = toml.load("settings.toml")
@@ -89,20 +89,48 @@ def create_email_content():
     return email_body
 
 def modules_run():
-    # List of functions
-    functions = [
-        generate_fuel_content,
-        get_status_updates,
-        get_ebay_results,
-        scrape_huggingface_models,
-        get_tracked_games_html,
-        get_newest_chapter_info
+    # Check if the previous email has been read
+    email_read = check_email_read_status()
+    print(f"Previous email read status: {email_read}")
+    
+    # List of functions that need email status
+    email_dependent_functions = [
+        (get_ebay_results, "eBay Search"),
+        (get_status_updates, "GitHub Updates"),
+        (get_tracked_games_html, "Steam Wishlist"), 
+        (get_newest_chapter_info, "TCBScans"),
+        (scrape_huggingface_models, "Hugging Face Models")
     ]
-
+    
+    # List of functions that don't need email status
+    standard_functions = [
+        (generate_fuel_content, "Fuel Watch")
+    ]
+    
     # Generate the HTML for each function and add separators
-    results = [func() for func in functions]
+    results = []
+    
+    # Run standard functions
+    for func, name in standard_functions:
+        try:
+            result = func()
+            results.append(result)
+        except Exception as e:
+            error_message = f"<tr><td class='content'><h3>Error in {name}</h3><p>An error occurred: {str(e)}</p></td></tr>"
+            results.append(error_message)
+            print(f"Error in {name}: {str(e)}")
+    
+    # Run functions that need email status
+    for func, name in email_dependent_functions:
+        try:
+            result = func(email_read)
+            results.append(result)
+        except Exception as e:
+            error_message = f"<tr><td class='content'><h3>Error in {name}</h3><p>An error occurred: {str(e)}</p></td></tr>"
+            results.append(error_message)
+            print(f"Error in {name}: {str(e)}")
+    
     html_output = "<tr><td><hr></td></tr>".join(results)
-
     return html_output
 
 email_body = create_email_content()

@@ -1,5 +1,6 @@
 import requests
 import toml
+import os
 from track_data import open_json, save_json
 
 # List of repositories to track
@@ -24,10 +25,6 @@ headers = {
 
 # Base URL for GitHub API
 base_url = 'https://api.github.com/repos/'
-
-# File to store the last known releases and commits
-tracking_file = 'github.json'
-tracking_data = open_json(tracking_file)
 
 # Function to get the latest commit from the default branch
 def get_latest_commit(repo):
@@ -58,19 +55,49 @@ def get_latest_release_or_commit(repo):
         return 'error', None, None
 
 # Function to collect status updates as a string
-def get_status_updates():
+def get_status_updates(email_read=False):
+    # File to store the last known releases and commits
+    tracking_file = os.path.join(os.path.dirname(__file__), 'github.json')
+    tracking_data = open_json(tracking_file)
+    
+    # Initialize the tracking data if it doesn't exist
+    if not tracking_data:
+        tracking_data = {
+            "repos": {},
+            "seen_updates": {} if email_read else {}
+        }
+    
+    # If email was read, move tracked repos to seen updates
+    if email_read:
+        for repo in tracking_data.get("repos", {}):
+            tracking_data["seen_updates"][repo] = tracking_data["repos"][repo]
+    
     status_updates = "<tr><td class='content'>"
     status_updates += f"<h3>Github Repo Updates</h3>"
+    
     for repo in repositories:
         item_type, item_id, item_name = get_latest_release_or_commit(repo)
         repo_link = f"https://github.com/{repo}"  # Creating link to the repository
+        
+        # Store current data in tracking
         if item_type != 'error' and item_id:
-            if repo not in tracking_data or tracking_data[repo] != item_id:
+            tracking_data.setdefault("repos", {})[repo] = {
+                "type": item_type,
+                "id": item_id,
+                "name": item_name
+            }
+            
+            # Check if this is new compared to seen updates
+            is_new = (
+                repo not in tracking_data.get("seen_updates", {}) or 
+                tracking_data["seen_updates"][repo]["id"] != item_id
+            )
+            
+            if is_new:
                 if item_type == 'release':
-                    status_updates += f"<a href='{repo_link}'>{repo}</a><br>New release<br>Version: {item_name}<br><br>"
+                    status_updates += f"<a href='{repo_link}'>{repo}</a> (New!)<br>New release<br>Version: {item_name}<br><br>"
                 else:
-                    status_updates += f"<a href='{repo_link}'>{repo}</a><br>New commit<br>Message: {item_name}<br><br>"
-                tracking_data[repo] = item_id
+                    status_updates += f"<a href='{repo_link}'>{repo}</a> (New!)<br>New commit<br>Message: {item_name}<br><br>"
             else:
                 if item_type == 'release':
                     status_updates += f"<a href='{repo_link}'>{repo}</a><br>No new release<br>Current Version: {item_name}<br><br>"

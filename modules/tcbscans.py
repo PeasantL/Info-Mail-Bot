@@ -1,10 +1,22 @@
 import requests
 from bs4 import BeautifulSoup
+import os
 from track_data import open_json, save_json
 
-def get_newest_chapter_info():
+def get_newest_chapter_info(email_read=False):
+    tracking_file = os.path.join(os.path.dirname(__file__), 'tcbscans.json')
+    tracking_data = open_json(tracking_file)
     
-    tracking_file = 'tcbscans.json'
+    # Initialize if empty
+    if not tracking_data:
+        tracking_data = {
+            "current_chapter": {},
+            "seen_chapters": {}
+        }
+    
+    # If email was read, update seen chapters
+    if email_read and tracking_data.get("current_chapter"):
+        tracking_data["seen_chapters"][tracking_data["current_chapter"]["title"]] = tracking_data["current_chapter"]
     
     # URL of the manga page
     url = 'https://tcbscans.me/mangas/5/one-piece'
@@ -33,14 +45,19 @@ def get_newest_chapter_info():
             'url': chapter_url
         }
         
-        saved_info = open_json(tracking_file)
+        # Update current chapter in tracking
+        tracking_data["current_chapter"] = current_info
         
-        # Compare with saved chapter info
-        if saved_info and saved_info['title'] == chapter_title:
-            header = '<h3>Latest Chapter</h3>'
-        else:
+        # Check if chapter is new
+        is_new = chapter_title not in tracking_data.get("seen_chapters", {})
+        
+        # Save updated tracking data
+        save_json(tracking_file, tracking_data)
+        
+        if is_new:
             header = '<h3>Latest Chapter (New!)</h3>'
-            save_json(tracking_file, current_info)
+        else:
+            header = '<h3>Latest Chapter</h3>'
         
         # Format the result as an HTML string with <tr><td class='content'>
         result = f'<tr><td class="content">{header}<a href="{chapter_url}">{chapter_title}</a><br>{chapter_subtitle}</td></tr>'

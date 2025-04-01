@@ -1,10 +1,23 @@
 import requests
 from bs4 import BeautifulSoup
+import os
 from track_data import open_json, save_json
 
-def scrape_huggingface_models():
-    tracking_file = 'huggingface.json'
+def scrape_huggingface_models(email_read=False):
+    tracking_file = os.path.join(os.path.dirname(__file__), 'huggingface.json')
     tracking_data = open_json(tracking_file)
+    
+    # Initialize if empty
+    if not tracking_data:
+        tracking_data = {
+            "current_models": {},
+            "seen_models": {}
+        }
+    
+    # If email was read, update seen models with current models
+    if email_read and tracking_data.get("current_models"):
+        for model, details in tracking_data["current_models"].items():
+            tracking_data["seen_models"][model] = details
     
     # The URL to scrape
     url = "https://huggingface.co/models?sort=trending&search=12b"
@@ -53,8 +66,8 @@ def scrape_huggingface_models():
                 downloads = "Unknown"
                 likes = "Unknown"
             
-            # Check if this model is new compared to the previous data
-            is_new = title not in tracking_data
+            # Check if this model is new compared to the seen models
+            is_new = title not in tracking_data.get("seen_models", {})
             
             # Store the current data
             current_data[title] = {
@@ -75,15 +88,14 @@ def scrape_huggingface_models():
             # Increment the index for the next model
             index += 1
         
-        html_output += "</tr></td>"
+        html_output += "</td></tr>"
         
         # Update the tracking data with the current data
-        save_json(tracking_file, current_data)  # Save the current data, not the original tracking data
+        tracking_data["current_models"] = current_data
+        save_json(tracking_file, tracking_data)
         
         # Return the HTML string
         return html_output
 
     else:
-        return f"<p>Failed to retrieve content. Status code: {response.status_code}</p>"
-
-#print(scrape_huggingface_models())
+        return f"<tr><td class='content'><p>Failed to retrieve content. Status code: {response.status_code}</p></td></tr>"
