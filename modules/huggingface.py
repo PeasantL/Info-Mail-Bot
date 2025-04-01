@@ -20,7 +20,7 @@ def scrape_huggingface_models(email_read=False):
             tracking_data["seen_models"][model] = details
     
     # The URL to scrape
-    url = "https://huggingface.co/models?sort=trending&search=12b"
+    url = "https://huggingface.co/models?sort=trending&search=27b"
 
     # Send a GET request to the URL
     response = requests.get(url)
