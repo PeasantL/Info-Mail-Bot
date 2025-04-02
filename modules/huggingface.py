@@ -1,7 +1,16 @@
 import requests
 from bs4 import BeautifulSoup
 import os
-from track_data import open_json, save_json
+import sys
+
+# Adjust import path based on how the script is run
+if __name__ == "__main__":
+    # Add the parent directory to the path when running directly
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from track_data import open_json, save_json
+else:
+    # Normal import when used as a module
+    from track_data import open_json, save_json
 
 def scrape_huggingface_models(email_read=False):
     tracking_file = os.path.join(os.path.dirname(__file__), 'huggingface.json')
@@ -20,7 +29,7 @@ def scrape_huggingface_models(email_read=False):
             tracking_data["seen_models"][model] = details
     
     # The URL to scrape
-    url = "https://huggingface.co/models?sort=trending&search=27b"
+    url = "https://huggingface.co/models?sort=trending&search=24b"
 
     # Send a GET request to the URL
     response = requests.get(url)
@@ -99,3 +108,8 @@ def scrape_huggingface_models(email_read=False):
 
     else:
         return f"<tr><td class='content'><p>Failed to retrieve content. Status code: {response.status_code}</p></td></tr>"
+
+# Run this code when the script is executed directly
+if __name__ == "__main__":
+    result = scrape_huggingface_models()
+    print(result)
